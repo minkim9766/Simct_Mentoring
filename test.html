@@ -75,8 +75,8 @@ const PHOTO_PATHS = {
 
 // ── DATA FETCH ───────────────────────────────────────
 Promise.all([
-  fetch('45.json').then(r => r.json()),
-  fetch('46.json').then(r => r.json())
+  fetch('./45.json').then(r => r.json()),
+  fetch('./46.json').then(r => r.json())
 ]).then(([gen45, gen46]) => {
   allMembers[45] = gen45.results.reduce((acc, curr) => { acc[curr.name] = curr.student_id; return acc; }, {});
   allMembers[46] = gen46.results.reduce((acc, curr) => { acc[curr.name] = curr.student_id; return acc; }, {});
