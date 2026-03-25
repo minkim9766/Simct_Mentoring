@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>멘토-멘티 매칭 시스템</title>
+<style>
+  /* 스타일 가독성 및 레이아웃 최적화 */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+  .app { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 32px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
+  .badge-45 { background: #1e3a5f; color: #60a5fa; }
+  .badge-46 { background: #1e3f2f; color: #34d399; }
+
+  .tabs { display: flex; gap: 4px; background: #1e2130; border-radius: 10px; padding: 4px; margin-bottom: 28px; }
+  .tab { flex: 1; padding: 12px; border: none; border-radius: 7px; background: transparent; color: #64748b; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .tab.active { background: #2d3250; color: #e2e8f0; }
+
+  .card { background: #1a1d2e; border: 1px solid #2d3250; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
+
+  /* 멤버 카드 스타일 */
+  .member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .member-btn { background: #1e2130; border: 1px solid #2d3250; border-radius: 12px; padding: 12px; cursor: pointer; text-align: center; transition: all .2s; color: white; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .member-btn:hover:not(.matched) { border-color: #4f6ef7; background: #1e2540; transform: translateY(-2px); }
+  .member-btn.voted { border-color: #34d399; }
+  .member-btn.matched { opacity: .4; cursor: default; filter: grayscale(0.8); }
+  
+  .student-photo { width: 90px; height: 115px; border-radius: 8px; object-fit: cover; background: #0f1117; border: 1px solid #2d3250; }
+  .member-btn .name { font-size: 0.95rem; font-weight: 700; }
+  .member-btn .status { font-size: 0.7rem; color: #64748b; }
+  .voted .status { color: #34d399; font-weight: 600; }
+
+  /* 투표 로직 UI */
+  .vote-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; background: #1a1d2e; padding: 16px; border-radius: 12px; }
+  .points-remaining { margin-left: auto; font-size: 0.9rem; font-weight: 700; color: #4f6ef7; }
+  .vote-row { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid #2d3250; }
+  .vote-slider { flex: 1; accent-color: #4f6ef7; cursor: pointer; }
+  .vote-val { width: 35px; text-align: right; font-weight: 700; color: #4f6ef7; }
+  .submit-btn { width: 100%; padding: 15px; background: #4f6ef7; border: none; border-radius: 10px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 20px; }
+  .submit-btn:disabled { background: #2d3250; color: #64748b; cursor: not-allowed; }
+
+  /* 결과 섹션 */
+  .result-pair { display: flex; align-items: center; gap: 12px; background: #1e2130; border: 1px solid #34d399; border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🤝 멘토-멘티 매칭</h1>
+  <p class="subtitle">45기(2025) × 46기(2026) · 스마트 매칭</p>
+  
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('home')">🏠 참여</button>
+    <button class="tab" onclick="showTab('admin')">⚙️ 관리자</button>
+  </div>
+
+  <div id="tab-home">로딩 중...</div>
+  <div id="tab-admin" style="display:none"></div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────
+let THRESHOLD = 110;
+let thresholdSet = false;
+const allMembers = { 45: {}, 46: {} };
+
+// 기수별 사진 경로 설정 (수정됨)
+const PHOTO_PATHS = {
+  45: "https://mysangsan.cafe24.com/dms/data/photo/202503/",
+  46: "https://mysangsan.cafe24.com/dms/data/photo/202603/"
+};
+
+// ── DATA FETCH ───────────────────────────────────────
+Promise.all([
+  fetch('45.json').then(r => r.json()),
+  fetch('46.json').then(r => r.json())
+]).then(([gen45, gen46]) => {
+  allMembers[45] = gen45.results.reduce((acc, curr) => { acc[curr.name] = curr.student_id; return acc; }, {});
+  allMembers[46] = gen46.results.reduce((acc, curr) => { acc[curr.name] = curr.student_id; return acc; }, {});
+  renderSetup(); 
+}).catch(() => {
+  document.getElementById('tab-home').innerHTML = "JSON 파일을 찾을 수 없습니다. (45.json, 46.json)";
+});
+
+let rounds = [{ votes: {}, matched: [] }];
+let confirmedMatched45 = new Set();
+let confirmedMatched46 = new Set();
+let allMatchedPairs = [];
+let roundClosed = false;
+let view = 'list';
+let currentVoter = null, currentVoterGen = null;
+
+// ── HELPERS ──────────────────────────────────────────
+function curRound() { return rounds[rounds.length - 1]; }
+function activeMembers(gen) { 
+  return Object.keys(allMembers[gen]).filter(n => !(gen===45 ? confirmedMatched45 : confirmedMatched46).has(n));
+}
+function getPhotoUrl(gen, name) {
+  const studentId = allMembers[gen][name];
+  return studentId ? `${PHOTO_PATHS[gen]}${studentId}${name}.jpg` : "";
+}
+
+// ── NAVIGATION ───────────────────────────────────────
+function showTab(t) {
+  document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', (i===0 && t==='home') || (i===1 && t==='admin')));
+  document.getElementById('tab-home').style.display = t==='home'?'':'none';
+  document.getElementById('tab-admin').style.display = t==='admin'?'':'none';
+  if(t==='home') renderHome();
+  if(t==='admin') renderAdmin();
+}
+
+// ── HOME RENDER ──────────────────────────────────────
+function renderHome() {
+  const el = document.getElementById('tab-home');
+  if(!thresholdSet) { renderSetup(); return; }
+  if(view==='vote') { renderVote(); return; }
+
+  let html = `<div class="card" style="border:none; background:transparent; padding:0; margin-bottom:12px;">
+                <div style="font-size:0.9rem; font-weight:700;">📍 라운드 ${rounds.length} 진행 중</div>
+              </div>`;
+
+  [45, 46].forEach(gen => {
+    html += `<div class="card"><div class="card-title">${gen}기 멤버</div><div class="member-grid">`;
+    Object.keys(allMembers[gen]).forEach(name => {
+      const isMatched = (gen===45?confirmedMatched45:confirmedMatched46).has(name);
+      const voted = !!curRound().votes[name];
+      const photo = getPhotoUrl(gen, name);
+
+      html += `<button class="member-btn ${isMatched?'matched':''} ${voted?'voted':''}" 
+                onclick="${isMatched ? '' : `startVote('${name}',${gen})`}">
+                <img src="${photo}" class="student-photo" onerror="this.src='https://via.placeholder.com/90x115?text=No+Img'">
+                <div class="name">${name}</div>
+                <div class="status">${isMatched ? '매칭 완료' : (voted ? '✓ 투표 완료' : '대기 중')}</div>
+              </button>`;
+    });
+    html += `</div></div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ── VOTE RENDER ──────────────────────────────────────
+function renderVote() {
+  const el = document.getElementById('tab-home');
+  const targetGen = currentVoterGen===45 ? 46 : 45;
+  const targets = activeMembers(targetGen);
+  const existing = curRound().votes[currentVoter] || {};
+
+  let html = `<div class="vote-header">
+    <button onclick="view='list';renderHome()" style="background:#2d3250; color:white; border:none; padding:8px 12px; border-radius:8px; cursor:pointer;">←</button>
+    <div style="font-weight:700">${currentVoter} <small>${currentVoterGen}기</small></div>
+    <div class="points-remaining">잔여: <span id="rem-pts">100</span>pt</div>
+  </div>
+  <div class="card"><div class="card-title">${targetGen}기 부원 점수 배분</div>`;
+
+  targets.forEach(t => {
+    const val = existing[t]||0;
+    html += `<div class="vote-row">
+      <img src="${getPhotoUrl(targetGen, t)}" style="width:45px;height:55px;object-fit:cover;border-radius:4px;">
+      <div style="flex:1; font-weight:600;">${t}</div>
+      <input type="range" class="vote-slider" min="0" max="100" value="${val}" id="sl-${t}" oninput="updateSlider('${t}')">
+      <div class="vote-val" id="vv-${t}">${val}</div>
+    </div>`;
+  });
+
+  html += `</div><button class="submit-btn" id="submit-btn" onclick="submitVote()" disabled>배분 완료</button>`;
+  el.innerHTML = html;
+  updateSlider(null);
+}
+
+function updateSlider(changedId) {
+  const targets = activeMembers(currentVoterGen===45?46:45);
+  let total = 0;
+  targets.forEach(t => total += parseInt(document.getElementById('sl-'+t).value));
+  
+  if(total > 100 && changedId) {
+    const el = document.getElementById('sl-'+changedId);
+    el.value = parseInt(el.value) - (total - 100);
+    total = 100;
+  }
+
+  targets.forEach(t => {
+    const v = parseInt(document.getElementById('sl-'+t).value);
+    document.getElementById('vv-'+t).textContent = v;
+  });
+
+  const rem = 100 - total;
+  document.getElementById('rem-pts').textContent = rem;
+  document.getElementById('submit-btn').disabled = rem !== 0;
+}
+
+function submitVote() {
+  const targets = activeMembers(currentVoterGen===45?46:45);
+  const v = {};
+  targets.forEach(t => v[t] = parseInt(document.getElementById('sl-'+t).value));
+  curRound().votes[currentVoter] = v;
+  view = 'list'; renderHome();
+}
+
+// ── SETUP & ADMIN ────────────────────────────────────
+function renderSetup() {
+  document.getElementById('tab-home').innerHTML = `
+    <div class="card" style="max-width:400px;margin:60px auto;text-align:center;">
+      <div style="font-size:1.5rem; margin-bottom:15px;">⚙️ 기준 점수</div>
+      <input id="threshold-input" type="number" value="110" style="width:100px;padding:10px;background:#0f1117;border:1px solid #4f6ef7;border-radius:8px;color:#fff;font-size:1.2rem;text-align:center;margin-bottom:20px;">
+      <button onclick="THRESHOLD=parseInt(document.getElementById('threshold-input').value);thresholdSet=true;renderHome();" class="submit-btn">시작하기</button>
+    </div>`;
+}
+
+function renderAdmin() {
+  const el = document.getElementById('tab-admin');
+  const act45 = activeMembers(45), act46 = activeMembers(46);
+  const voters = [...act45, ...act46];
+  const done = voters.filter(n => !!curRound().votes[n]);
+
+  let html = `<div class="card"><div class="card-title">현황</div>
+              <p style="font-size:0.9rem;">투표 완료: ${done.length} / ${voters.length}</p>
+              <button onclick="runMatching()" class="submit-btn" style="background:#34d399;" ${done.length===voters.length?'':'disabled'}>매칭 실행하기</button></div>`;
+
+  if(allMatchedPairs.length > 0) {
+    html += `<div class="card"><div class="card-title">확정 명단</div>`;
+    allMatchedPairs.forEach(p => {
+      html += `<div class="result-pair">
+                <span>${p.m45}</span> ↔ <span>${p.m46}</span>
+                <span style="margin-left:auto; font-weight:bold; color:#4f6ef7;">${p.score}점</span>
+              </div>`;
+    });
+    html += `</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function runMatching() {
+  const act45 = activeMembers(45), act46 = activeMembers(46);
+  const rv = curRound().votes;
+  const pairs = [];
+
+  act45.forEach(m45 => act46.forEach(m46 => {
+    const s1 = rv[m45]?.[m46]||0;
+    const s2 = rv[m46]?.[m45]||0;
+    const score = s1 + s2;
+    if(score >= THRESHOLD) pairs.push({m45, m46, score});
+  }));
+
+  pairs.sort((a,b) => b.score - a.score);
+  const used45 = new Set(), used46 = new Set();
+  
+  pairs.forEach(p => {
+    if(!used45.has(p.m45) && !used46.has(p.m46)) {
+      allMatchedPairs.push(p);
+      confirmedMatched45.add(p.m45);
+      confirmedMatched46.add(p.m46);
+      used45.add(p.m45); used46.add(p.m46);
+    }
+  });
+
+  rounds.push({ votes: {}, matched: [] });
+  showTab('admin');
+}
+</script>
+</body>
+</html>

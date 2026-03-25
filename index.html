@@ -139,19 +139,15 @@
 let THRESHOLD = 110;
 let thresholdSet = false;
 
-/**
 const allMembers = {
   45: ['정지효','김현지','류정록','진은찬','김민서','박지훈','양교민','임채민','이민하','한승범'],
   46: ['강민성','김민주','김원곤','박민우','박윤서','위준혁','윤주성','전형우','조아인','최연아']
 };
-**/
 
-// 최초 1회: 학생명 목록 fetch해서 allMembers에 할당
-const allMembers = {45: [], 46: []};
 
 Promise.all([
-  fetch('45.json').then(r => r.json()),
-  fetch('46.json').then(r => r.json())
+  fetch('45_new.json').then(r => r.json()),
+  fetch('46_new.json').then(r => r.json())
 ]).then(([gen45, gen46]) => {
   allMembers[45] = gen45;
   allMembers[46] = gen46;

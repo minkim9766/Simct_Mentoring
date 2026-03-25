@@ -1,12 +1,19 @@
-[
-  "정지효",
-  "김현지",
-  "류정록",
-  "진은찬",
-  "김민서",
-  "박지훈",
-  "양교민",
-  "임채민",
-  "이민하",
-  "한승범"
-]
+{
+  "search_summary": {
+    "total_targets": 10,
+    "total_combinations_checked": 336,
+    "status": "completed"
+  },
+  "results": [
+    { "name": "정지효", "student_id": "10926" },
+    { "name": "김현지", "student_id": "10808" },
+    { "name": "류정록", "student_id": "11106" },
+    { "name": "진은찬", "student_id": "11125" },
+    { "name": "김민서", "student_id": "10302" },
+    { "name": "박지훈", "student_id": "10108" },
+    { "name": "양교민", "student_id": "10512" },
+    { "name": "임채민", "student_id": "10622" },
+    { "name": "이민하", "student_id": "10216" },
+    { "name": "한승범", "student_id": "11127" }
+  ]
+}

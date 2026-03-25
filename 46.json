@@ -1,12 +1,19 @@
-[
-  "강민성",
-  "김민주",
-  "김원곤",
-  "박민우",
-  "박윤서",
-  "위준혁",
-  "윤주성",
-  "전형우",
-  "조아인",
-  "최연아"
-]
+{
+  "search_summary": {
+    "total_targets": 10,
+    "status": "completed",
+    "group": "SIMCT"
+  },
+  "results": [
+    { "name": "강민성", "student_id": "10102" },
+    { "name": "김원곤", "student_id": "10107" },
+    { "name": "위준혁", "student_id": "10217" },
+    { "name": "전형우", "student_id": "10326" },
+    { "name": "박윤서", "student_id": "10408" },
+    { "name": "박민우", "student_id": "11211" },
+    { "name": "윤주성", "student_id": "11219" },
+    { "name": "조아인", "student_id": "10724" },
+    { "name": "최연아", "student_id": "10726" },
+    { "name": "김민주", "student_id": "10804" }
+  ]
+}
