@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>멘토-멘티 매칭 시스템</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+  .app { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 32px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
+  .badge-45 { background: #1e3a5f; color: #60a5fa; }
+  .badge-46 { background: #1e3f2f; color: #34d399; }
+
+  .tabs { display: flex; gap: 4px; background: #1e2130; border-radius: 10px; padding: 4px; margin-bottom: 28px; }
+  .tab { flex: 1; padding: 9px; border: none; border-radius: 7px; background: transparent; color: #64748b; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .tab.active { background: #2d3250; color: #e2e8f0; }
+  .tab:hover:not(.active) { color: #94a3b8; }
+
+  .card { background: #1a1d2e; border: 1px solid #2d3250; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
+
+  /* round badge */
+  .round-pill { display: inline-flex; align-items: center; gap: 6px; background: #1e2130; border: 1px solid #2d3250; border-radius: 999px; padding: 5px 14px; font-size: 0.82rem; font-weight: 600; margin-bottom: 18px; }
+  .round-dot { width: 8px; height: 8px; border-radius: 50%; background: #4f6ef7; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* member grid */
+  .member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .member-btn { background: #1e2130; border: 1px solid #2d3250; border-radius: 10px; padding: 13px 10px; cursor: pointer; text-align: center; transition: all .2s; }
+  .member-btn:hover { border-color: #4f6ef7; background: #1e2540; }
+  .member-btn.voted { border-color: #34d399; }
+  .member-btn.matched { opacity: .35; cursor: default; border-color: #1e2130; }
+  .member-btn .name { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+  .member-btn .status { font-size: 0.7rem; color: #64748b; }
+  .member-btn.voted .status { color: #34d399; }
+  .member-btn.matched .status { color: #475569; }
+
+  /* vote */
+  .vote-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .back-btn { background: #2d3250; border: none; color: #94a3b8; padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+  .back-btn:hover { background: #3d4470; }
+  .points-remaining { margin-left: auto; background: #1e2130; border: 1px solid #2d3250; border-radius: 8px; padding: 6px 14px; font-size: 0.85rem; }
+  .points-remaining span { font-weight: 700; font-size: 1rem; }
+  .ok { color: #34d399; } .over { color: #f87171; }
+
+  .vote-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #1e2130; }
+  .vote-row:last-child { border-bottom: none; }
+  .vote-name { width: 90px; font-size: 0.9rem; font-weight: 600; flex-shrink: 0; }
+  .vote-slider { flex: 1; -webkit-appearance: none; appearance: none; height: 5px; border-radius: 5px; background: #2d3250; outline: none; cursor: pointer; }
+  .vote-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #4f6ef7; cursor: pointer; }
+  .vote-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #4f6ef7; border: none; cursor: pointer; }
+  .vote-val { width: 36px; text-align: right; font-size: 0.9rem; font-weight: 700; color: #4f6ef7; flex-shrink: 0; }
+  .submit-btn { width: 100%; margin-top: 20px; padding: 13px; background: #4f6ef7; border: none; border-radius: 10px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; }
+  .submit-btn:hover { background: #3a57e8; }
+  .submit-btn:disabled { background: #2d3250; color: #64748b; cursor: not-allowed; }
+
+  /* admin */
+  .progress-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .prog-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #1e2130; font-size: 0.85rem; }
+  .prog-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-done { background: #34d399; } .dot-pending { background: #475569; } .dot-matched { background: #2d3250; }
+  .prog-name { flex: 1; }
+  .prog-tag { font-size: 0.7rem; color: #475569; }
+  .prog-tag.done { color: #34d399; } .prog-tag.matched { color: #4f6ef7; }
+
+  .action-btn { width: 100%; padding: 13px; border: none; border-radius: 10px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; margin-bottom: 12px; transition: opacity .2s; }
+  .action-btn:hover { opacity: .9; }
+  .action-btn:disabled { background: #2d3250 !important; color: #64748b; cursor: not-allowed; }
+  .btn-match { background: linear-gradient(135deg, #4f6ef7, #7c3aed); }
+  .btn-next { background: linear-gradient(135deg, #059669, #0891b2); }
+
+  /* results */
+  .result-section { margin-bottom: 20px; }
+  .result-section-title { font-size: 0.78rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .result-section-title::after { content:''; flex:1; height:1px; background:#2d3250; }
+
+  .result-pair { display: flex; align-items: center; gap: 10px; background: #1e2130; border: 1px solid #2d3250; border-radius: 12px; padding: 13px 16px; margin-bottom: 8px; }
+  .result-pair.gold { border-color: #f59e0b; background: #1f1a0e; }
+  .result-pair.silver { border-color: #94a3b8; background: #161a24; }
+  .result-pair.bronze { border-color: #b45309; background: #1a130a; }
+  .pair-rank { font-size: 1.1rem; width: 26px; flex-shrink: 0; }
+  .pair-names { flex: 1; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.9rem; flex-wrap: wrap; }
+  .arrow { color: #4f6ef7; }
+  .pair-meta { text-align: right; font-size: 0.78rem; color: #64748b; line-height: 1.6; }
+  .pair-meta strong { color: #e2e8f0; }
+  .round-tag { font-size: 0.7rem; background: #2d3250; color: #94a3b8; padding: 2px 8px; border-radius: 999px; }
+
+  .unmatched-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .unmatched-chip { background: #1e2130; border: 1px solid #2d3250; border-radius: 8px; padding: 5px 12px; font-size: 0.82rem; }
+
+  .notice { background: #1e2130; border: 1px solid #2d3250; border-radius: 10px; padding: 12px 16px; font-size: 0.82rem; color: #64748b; margin-bottom: 14px; line-height: 1.6; }
+  .reset-btn { width: 100%; padding: 11px; background: transparent; border: 1px solid #f87171; border-radius: 10px; color: #f87171; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+  .reset-btn:hover { background: #2a1010; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🤝 멘토-멘티 매칭</h1>
+  <p class="subtitle">45기 × 46기 · 라운드 반복 매칭 시스템</p>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('home')">🏠 참여</button>
+    <button class="tab" onclick="showTab('admin')">⚙️ 관리자</button>
+  </div>
+  <div id="tab-home"></div>
+  <div id="tab-admin" style="display:none"></div>
+</div>
+
+<!-- 초기화 확인 모달 -->
+<div id="reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9999">
+  <div class="modal-box">
+    <div class="modal-icon-wrap">🗑️</div>
+    <div class="modal-title">전체 초기화할까요?</div>
+    <div class="modal-desc">모든 투표 데이터와 매칭 결과가<br>완전히 삭제됩니다.</div>
+    <div class="modal-divider"></div>
+    <div class="modal-btns">
+      <button class="modal-btn-cancel" onclick="closeResetModal()">취소</button>
+      <button class="modal-btn-confirm" onclick="doReset()">초기화</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────
+let THRESHOLD = 110;
+let thresholdSet = false;
+
+const allMembers = {
+  45: ['정지효','김현지','류정록','진은찬','김민서','박지훈','양교민','임채민','이민하','한승범'],
+  46: ['강민성','김민주','김원곤','박민우','박윤서','위준혁','윤주성','전형우','조아인','최연아']
+};
+
+// rounds: [{ votes: {name: {target: pts}}, matched: [{m45,m46,score,s1,s2}] }]
+let rounds = [{ votes: {}, matched: [] }];
+let confirmedMatched45 = new Set(); // globally matched
+let confirmedMatched46 = new Set();
+let allMatchedPairs = []; // [{m45,m46,score,s1,s2,round}]
+let roundClosed = false; // current round results revealed
+let view = 'list';
+let currentVoter = null, currentVoterGen = null;
+
+function curRound() { return rounds[rounds.length - 1]; }
+function roundNum() { return rounds.length; }
+function activeMembers(gen) { 
+  const matched = gen===45 ? confirmedMatched45 : confirmedMatched46;
+  return allMembers[gen].filter(n => !matched.has(n));
+}
+
+// ── TABS ─────────────────────────────────────────────
+function showTab(t) {
+  ['home','admin'].forEach((id,i) => {
+    document.querySelectorAll('.tab')[i].classList.toggle('active', id===t);
+    document.getElementById('tab-'+id).style.display = id===t?'':'none';
+  });
+  if(t==='home') renderHome();
+  if(t==='admin') renderAdmin();
+}
+
+// ── HOME ─────────────────────────────────────────────
+function renderHome() {
+  const el = document.getElementById('tab-home');
+  if(!thresholdSet) { renderSetup(); return; }
+  if(view==='vote') { renderVote(); return; }
+
+  const active45 = activeMembers(45), active46 = activeMembers(46);
+  if(active45.length===0 || active46.length===0) {
+    el.innerHTML = `<div class="card" style="text-align:center;padding:40px">
+      <div style="font-size:2rem;margin-bottom:12px">🎉</div>
+      <div style="font-weight:700;font-size:1.1rem;margin-bottom:8px">매칭 완료!</div>
+      <div style="color:#64748b;font-size:.9rem">모든 부원의 매칭이 완료됐어요. 관리자 탭에서 결과를 확인하세요.</div>
+    </div>`;
+    return;
+  }
+
+  let html = `<div class="round-pill"><div class="round-dot"></div>라운드 ${roundNum()} 진행 중</div>`;
+
+  if(roundClosed) {
+    html += `<div class="notice">✅ 이번 라운드 투표가 마감됐습니다. 관리자 탭에서 결과를 확인하고 다음 라운드를 시작하세요.</div>`;
+  }
+
+  [45,46].forEach(gen => {
+    const actives = activeMembers(gen);
+    html += `<div class="card"><div class="card-title">${gen}기 <span class="badge badge-${gen}">${gen}기</span> — 활성 ${actives.length}명</div><div class="member-grid">`;
+    allMembers[gen].forEach(name => {
+      const isMatched = (gen===45?confirmedMatched45:confirmedMatched46).has(name);
+      const voted = !!curRound().votes[name];
+      if(isMatched) {
+        html += `<div class="member-btn matched"><div class="name">${name}</div><div class="status">매칭 완료</div></div>`;
+      } else if(roundClosed) {
+        html += `<div class="member-btn ${voted?'voted':''}"><div class="name">${name}</div><div class="status">${voted?'✓ 투표함':'대기 중'}</div></div>`;
+      } else {
+        html += `<button class="member-btn ${voted?'voted':''}" onclick="startVote('${name}',${gen})">
+          <div class="name">${name}</div><div class="status">${voted?'✓ 투표 완료':'투표 전'}</div>
+        </button>`;
+      }
+    });
+    html += `</div></div>`;
+  });
+
+  if(!roundClosed) html += `<div class="notice">💡 본인 이름을 클릭해 상대 기수 부원에게 100점을 배분하세요. 합산 ${THRESHOLD}점 이상인 쌍이 매칭 확정됩니다.</div>`;
+  el.innerHTML = html;
+}
+
+function startVote(name, gen) {
+  if(roundClosed) return;
+  currentVoter = name; currentVoterGen = gen;
+  view = 'vote'; renderVote();
+}
+
+function renderVote() {
+  const el = document.getElementById('tab-home');
+  const targetGen = currentVoterGen===45 ? 46 : 45;
+  const targets = activeMembers(targetGen);
+  const existing = curRound().votes[currentVoter] || {};
+
+  let html = `<div class="vote-header">
+    <button class="back-btn" onclick="view='list';renderHome()">← 뒤로</button>
+    <div style="font-weight:700">${currentVoter} <span class="badge badge-${currentVoterGen}">${currentVoterGen}기</span></div>
+    <div class="round-pill" style="margin:0"><div class="round-dot"></div>R${roundNum()}</div>
+    <div class="points-remaining">남은 점수: <span id="rem-pts" class="ok">0</span></div>
+  </div>
+  <div class="card"><div class="card-title">${targetGen}기 부원에게 100점 배분</div>`;
+
+  targets.forEach(t => {
+    const val = existing[t]||0;
+    html += `<div class="vote-row">
+      <div class="vote-name">${t}</div>
+      <input type="range" class="vote-slider" min="0" max="100" value="${val}" id="sl-${t}" oninput="updateSlider('${t}')">
+      <div class="vote-val" id="vv-${t}">${val}</div>
+    </div>`;
+  });
+
+  html += `</div><button class="submit-btn" id="submit-btn" onclick="submitVote()" disabled>투표 완료</button>`;
+  el.innerHTML = html;
+  updateSlider(null);
+}
+
+function updateSlider(changedId) {
+  const targetGen = currentVoterGen===45?46:45;
+  const targets = activeMembers(targetGen);
+
+  // clamp: if total > 100, pull the changed slider back
+  if(changedId) {
+    let total = 0;
+    targets.forEach(t => { total += parseInt(document.getElementById('sl-'+t).value); });
+    if(total > 100) {
+      const over = total - 100;
+      const el = document.getElementById('sl-'+changedId);
+      el.value = Math.max(0, parseInt(el.value) - over);
+    }
+  }
+
+  let total = 0;
+  targets.forEach(t => {
+    const v = parseInt(document.getElementById('sl-'+t).value);
+    document.getElementById('vv-'+t).textContent = v;
+    total += v;
+  });
+
+  // disable sliders that would push total over 100
+  const rem = 100 - total;
+  targets.forEach(t => {
+    const sl = document.getElementById('sl-'+t);
+    const cur = parseInt(sl.value);
+    sl.max = cur + rem; // can't drag beyond current + remaining
+  });
+
+  const remEl = document.getElementById('rem-pts');
+  remEl.textContent = rem;
+  remEl.className = rem===0?'ok':'';
+  document.getElementById('submit-btn').disabled = rem!==0;
+}
+
+function submitVote() {
+  const targetGen = currentVoterGen===45?46:45;
+  const targets = activeMembers(targetGen);
+  const v = {};
+  targets.forEach(t => v[t] = parseInt(document.getElementById('sl-'+t).value));
+  curRound().votes[currentVoter] = v;
+  view = 'list'; renderHome();
+}
+
+// ── ADMIN ─────────────────────────────────────────────
+function renderAdmin() {
+  const el = document.getElementById('tab-admin');
+  const act45 = activeMembers(45), act46 = activeMembers(46);
+  const voters = [...act45, ...act46];
+  const doneVoters = voters.filter(n => !!curRound().votes[n]);
+  const allVoted = voters.length > 0 && doneVoters.length === voters.length;
+
+  let html = `<div class="round-pill"><div class="round-dot"></div>라운드 ${roundNum()} · ${doneVoters.length}/${voters.length}명 투표 완료</div>`;
+
+  // progress
+  html += `<div class="card"><div class="card-title">투표 현황</div><div class="progress-grid">`;
+  [45,46].forEach(gen => {
+    html += `<div><div style="font-size:.78rem;font-weight:700;color:#94a3b8;margin-bottom:8px">${gen}기</div>`;
+    allMembers[gen].forEach(name => {
+      const isMatched = (gen===45?confirmedMatched45:confirmedMatched46).has(name);
+      const voted = !!curRound().votes[name];
+      if(isMatched) {
+        html += `<div class="prog-item"><div class="prog-dot dot-matched"></div><span class="prog-name">${name}</span><span class="prog-tag matched">매칭됨</span></div>`;
+      } else {
+        html += `<div class="prog-item"><div class="prog-dot ${voted?'dot-done':'dot-pending'}"></div><span class="prog-name">${name}</span><span class="prog-tag ${voted?'done':''}"> ${voted?'완료':'대기'}</span></div>`;
+      }
+    });
+    html += `</div>`;
+  });
+  html += `</div></div>`;
+
+  if(!roundClosed) {
+    if(!allVoted) html += `<div class="notice">⚠️ 활성 부원 전원이 투표를 완료해야 결과를 확인할 수 있습니다. (${voters.length-doneVoters.length}명 미완료)</div>`;
+    html += `<button class="action-btn btn-match" ${allVoted?'':'disabled'} onclick="runMatching()">🎯 이번 라운드 매칭 실행 (${THRESHOLD}점 이상 확정)</button>`;
+  } else {
+    // show this round's matched
+    const thisRoundMatched = allMatchedPairs.filter(p => p.round===roundNum());
+    if(thisRoundMatched.length > 0) {
+      html += `<div class="card"><div class="card-title">✅ R${roundNum()} 매칭 확정 (${thisRoundMatched.length}쌍)</div>`;
+      thisRoundMatched.forEach(p => {
+        html += `<div class="result-pair" style="border-color:#34d399;background:#0d1f17">
+          <div class="pair-names"><span class="badge badge-45">45기</span>${p.m45}<span class="arrow">↔</span><span class="badge badge-46">46기</span>${p.m46}</div>
+          <div class="pair-meta"><strong>${p.score}점</strong><br><span style="font-size:.7rem">${p.s1}+${p.s2}</span></div>
+        </div>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<div class="notice">이번 라운드에서 ${THRESHOLD}점 이상인 쌍이 없습니다. 더 이상 매칭할 수 없어요.</div>`;
+    }
+
+    const nextAct45 = activeMembers(45), nextAct46 = activeMembers(46);
+    if(nextAct45.length > 0 && nextAct46.length > 0) {
+      if(thisRoundMatched.length === 0) {
+        html += `<div class="notice">⚠️ 이번 라운드에서 매칭된 쌍이 없습니다. 기준 점수를 낮추거나 다음 라운드를 진행하세요.
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+            <span style="font-size:.85rem;color:#94a3b8">기준 점수 변경:</span>
+            <input id="new-threshold" type="number" min="1" max="200" value="${THRESHOLD}"
+              style="width:72px;padding:6px 8px;background:#1e2130;border:1px solid #4f6ef7;border-radius:7px;color:#e2e8f0;font-size:.9rem;font-weight:700;text-align:center;outline:none;">
+            <button onclick="changeThreshold()" style="padding:6px 14px;background:#4f6ef7;border:none;border-radius:7px;color:#fff;font-size:.85rem;font-weight:700;cursor:pointer;">적용</button>
+          </div>
+        </div>`;
+      }
+      html += `<button class="action-btn btn-next" onclick="nextRound()">▶ 다음 라운드 시작 (미매칭 ${nextAct45.length+nextAct46.length}명)</button>`;
+    } else {
+      html += `<button class="action-btn btn-next" disabled>▶ 다음 라운드 없음</button>`;
+    }
+  }
+
+  // all-time results
+  if(allMatchedPairs.length > 0) {
+    html += renderAllResults();
+  }
+
+  // unmatched
+  const unm45 = activeMembers(45), unm46 = activeMembers(46);
+  if((unm45.length>0||unm46.length>0) && roundClosed) {
+    html += `<div class="card"><div class="card-title">미매칭 부원</div><div style="margin-bottom:10px;font-size:.8rem;color:#64748b">45기</div><div class="unmatched-list">`;
+    unm45.forEach(n => html += `<div class="unmatched-chip"><span class="badge badge-45">45기</span> ${n}</div>`);
+    html += `</div><div style="margin:12px 0 10px;font-size:.8rem;color:#64748b">46기</div><div class="unmatched-list">`;
+    unm46.forEach(n => html += `<div class="unmatched-chip"><span class="badge badge-46">46기</span> ${n}</div>`);
+    html += `</div></div>`;
+  }
+
+  html += `<button class="reset-btn" onclick="resetAll()">🗑️ 전체 초기화</button>`;
+  el.innerHTML = html;
+}
+
+function runMatching() {
+  const act45 = activeMembers(45), act46 = activeMembers(46);
+  const rv = curRound().votes;
+  const pairs = [];
+  act45.forEach(m45 => act46.forEach(m46 => {
+    const s1 = rv[m45]?.[m46]||0;
+    const s2 = rv[m46]?.[m45]||0;
+    const score = s1+s2;
+    if(score >= THRESHOLD) pairs.push({m45,m46,score,s1,s2});
+  }));
+  pairs.sort((a,b) => b.score-a.score);
+
+  // greedy: highest score first, no repeat
+  const used45=new Set(), used46=new Set();
+  const matched=[];
+  for(const p of pairs) {
+    if(!used45.has(p.m45)&&!used46.has(p.m46)) {
+      matched.push(p); used45.add(p.m45); used46.add(p.m46);
+    }
+  }
+  matched.forEach(p => {
+    confirmedMatched45.add(p.m45);
+    confirmedMatched46.add(p.m46);
+    allMatchedPairs.push({...p, round: roundNum()});
+  });
+  curRound().matched = matched;
+  roundClosed = true;
+  renderAdmin();
+}
+
+function changeThreshold() {
+  const val = parseInt(document.getElementById('new-threshold').value);
+  if(isNaN(val) || val < 1 || val > 200) { alert('1~200 사이의 값을 입력해주세요.'); return; }
+  THRESHOLD = val;
+  renderAdmin();
+}
+
+function nextRound() {
+  rounds.push({ votes: {}, matched: [] });
+  roundClosed = false;
+  renderAdmin();
+  // also refresh home
+  document.getElementById('tab-home');
+}
+
+function renderAllResults() {
+  const medals = ['🥇','🥈','🥉'];
+  const cls = ['gold','silver','bronze'];
+  let html = `<div class="card"><div class="card-title">전체 매칭 결과 (${allMatchedPairs.length}쌍)</div>`;
+  allMatchedPairs.forEach((p,i) => {
+    html += `<div class="result-pair ${cls[i]||''}">
+      <div class="pair-rank">${medals[i]||`${i+1}`}</div>
+      <div class="pair-names"><span class="badge badge-45">45기</span>${p.m45}<span class="arrow">↔</span><span class="badge badge-46">46기</span>${p.m46}</div>
+      <div class="pair-meta"><strong>${p.score}점</strong><br><span class="round-tag">R${p.round}</span></div>
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function resetAll() {
+  const m = document.getElementById('reset-modal');
+  m.style.display = 'flex';
+}
+function closeResetModal() {
+  document.getElementById('reset-modal').style.display = 'none';
+}
+
+function doReset() {
+  rounds = [{ votes:{}, matched:[] }];
+  confirmedMatched45 = new Set();
+  confirmedMatched46 = new Set();
+  allMatchedPairs = [];
+  roundClosed = false;
+  thresholdSet = false;
+  view = 'list';
+  closeResetModal();
+  showTab('home');
+}
+
+// ── THRESHOLD SETUP ──────────────────────────────────
+function renderSetup() {
+  const el = document.getElementById('tab-home');
+  el.innerHTML = `
+    <div class="card" style="max-width:400px;margin:60px auto;text-align:center;padding:36px 28px">
+      <div style="font-size:2rem;margin-bottom:12px">⚙️</div>
+      <div style="font-weight:700;font-size:1.1rem;margin-bottom:8px">매칭 기준 점수 설정</div>
+      <div style="color:#64748b;font-size:.85rem;margin-bottom:24px">양방향 합산 점수가 이 값 이상인 쌍만 매칭 확정됩니다</div>
+      <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:8px">
+        <input id="threshold-input" type="number" min="1" max="200" value="110"
+          style="width:100px;padding:10px;background:#1e2130;border:1px solid #4f6ef7;border-radius:8px;color:#e2e8f0;font-size:1.3rem;font-weight:700;text-align:center;outline:none;">
+        <span style="color:#64748b;font-size:.9rem">점 이상</span>
+      </div>
+      <div style="color:#475569;font-size:.75rem;margin-bottom:24px">최대 200점 (각 100점씩 양방향 합산)</div>
+      <button onclick="confirmThreshold()" style="width:100%;padding:13px;background:#4f6ef7;border:none;border-radius:10px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;">확인 · 시작하기</button>
+    </div>`;
+}
+
+function confirmThreshold() {
+  const val = parseInt(document.getElementById('threshold-input').value);
+  if(isNaN(val) || val < 1 || val > 200) {
+    alert('1~200 사이의 값을 입력해주세요.');
+    return;
+  }
+  THRESHOLD = val;
+  thresholdSet = true;
+  renderHome();
+}
+
+// init
+renderSetup();
+</script>
+</body>
+</html>
